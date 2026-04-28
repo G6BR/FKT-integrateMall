@@ -1,0 +1,10 @@
+{
+  "name": "饭卡通合并 (FanKaTong)",
+  "description": "企事业单位内部饭卡管理与消费平台，支持多卡管理、线下门店支付、线上商城及食堂订餐。",
+  "requestFramePermissions": [
+    "camera"
+  ],
+  "majorCapabilities": [],
+  "C7": [],
+  "Xp": []
+}

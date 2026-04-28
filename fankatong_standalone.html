@@ -1,0 +1,1343 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>饭卡通 - 移动支付平台</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- React & ReactDOM CDNs -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #121212; /* Dark ambient background */
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #root {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            width: 100%;
+            height: 100%;
+        }
+
+        .app-frame {
+            width: 393px; /* Logical width for 1179px physical */
+            height: 852px; /* Logical height for 2556px physical */
+            background-color: #f8f9fb;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            border: 12px solid #222;
+            border-radius: 54px;
+            box-shadow: 0 50px 100px -20px rgba(0,0,0,0.7);
+        }
+
+        @media (max-height: 900px) {
+            .app-frame {
+                transform: scale(0.9);
+            }
+        }
+        @media (max-height: 800px) {
+            .app-frame {
+                transform: scale(0.8);
+            }
+        }
+        @media (max-height: 700px) {
+            .app-frame {
+                transform: scale(0.7);
+            }
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: rgba(0,0,0,0.05);
+            border-radius: 10px;
+            margin: 0 40px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: rgba(37, 99, 235, 0.6);
+            border-radius: 10px;
+        }
+
+        .fade-in {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .scale-in {
+            animation: scaleIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        @keyframes scaleIn {
+            from { opacity: 0; transform: scale(0.9) translateY(10px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+
+        .floating-btn {
+            box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.4);
+        }
+
+        .iphone-x-bottom {
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+
+        .card-container {
+            scroll-behavior: smooth;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef, useMemo } = React;
+
+        // Mock Data
+        const MOCK_CARDS = [
+            { 
+                id: '1', 
+                title: '杭州硕洋科技', 
+                balance: null, 
+                cardId: '70001813989850712', 
+                color: 'bg-gradient-to-br from-blue-600 to-blue-800',
+                allowedChannels: ['box', 'canteen', 'mall'],
+                allowedTabs: ['home', 'pay', 'mall', 'mine']
+            },
+            { 
+                id: '2', 
+                title: '世纪联华生活惠', 
+                balance: 100.79, 
+                cardId: '1959502521', 
+                color: 'bg-gradient-to-br from-red-500 to-red-700',
+                allowedChannels: ['jingxuan', 'mall'],
+                allowedTabs: ['home', 'jingxuan', 'pay', 'mall', 'mine'],
+                isSubCard: true
+            },
+            { 
+                id: '3', 
+                title: '饭卡通商城测试卡', 
+                balance: 0.1, 
+                cardId: 'TEST00131', 
+                color: 'bg-gradient-to-br from-pink-500 to-pink-700',
+                allowedChannels: ['mall'],
+                allowedTabs: ['home', 'mall', 'mine']
+            },
+            { 
+                id: '4', 
+                title: '大牛集团(hpt测试)', 
+                balance: 500.0, 
+                cardId: 'TEST00020', 
+                color: 'bg-gradient-to-br from-cyan-600 to-cyan-800',
+                allowedChannels: ['jingxuan', 'box', 'canteen', 'mall'],
+                allowedTabs: ['home', 'jingxuan', 'pay', 'mall', 'mine']
+            }
+        ];
+
+        const MOCK_BANNERS = [
+            { id: 'b1', imageUrl: 'https://picsum.photos/seed/mall1/800/400', title: '热销好价 大迈露营桌椅套装' },
+            { id: 'b2', imageUrl: 'https://picsum.photos/seed/mall2/800/400', title: '4月踏青季 饭卡通线上商城' }
+        ];
+
+        const MOCK_PRODUCTS = [
+            { id: 'p1', enterpriseId: '1', name: '办公A4纸 500张/包', price: 25.0, imageUrl: 'https://picsum.photos/seed/paper/300/300', tag: '办公' },
+            { id: 'p2', enterpriseId: '1', name: '得力订书机套装', price: 15.0, imageUrl: 'https://picsum.photos/seed/stapler/300/300' },
+            { id: 'p3', enterpriseId: '2', name: '五常大米 5kg', price: 59.9, imageUrl: 'https://picsum.photos/seed/rice/300/300', tag: '热销' },
+            { id: 'p4', enterpriseId: '2', name: '特仑苏纯牛奶 250ml*12', price: 65.0, imageUrl: 'https://picsum.photos/seed/milk/300/300', tag: '限时' },
+            { id: 'p5', enterpriseId: '3', name: '金龙鱼调和油 5L', price: 89.0, imageUrl: 'https://picsum.photos/seed/oil/300/300' },
+            { id: 'p6', enterpriseId: '4', name: '进口车厘子 500g', price: 45.0, imageUrl: 'https://picsum.photos/seed/cherry/300/300', tag: '生鲜' },
+        ];
+
+        const MOCK_TRANSACTIONS = [
+            { id: 't1', cardId: '1', channel: '员工食堂', amount: -15.5, time: '2024-04-20 12:30', type: 'payment' },
+            { id: 't2', cardId: '1', channel: '联华超市', amount: -45.2, time: '2024-04-20 18:15', type: 'payment' },
+            { id: 't3', cardId: '2', channel: '线上商城', amount: -65.0, time: '2024-04-21 10:05', type: 'payment' },
+            { id: 't4', cardId: '1', channel: '智能售货柜', amount: -3.5, time: '2024-04-21 14:20', type: 'payment' },
+            { id: 't5', cardId: '4', channel: '员工食堂', amount: -22.0, time: '2024-04-22 08:30', type: 'payment' },
+            { id: 't6', cardId: '1', channel: '线上商城', amount: 30.0, time: '2024-04-22 11:00', type: 'refund' },
+            { id: 't7', cardId: '2', channel: '联华超市', amount: -12.8, time: '2024-04-22 16:45', type: 'payment' },
+            { id: 't8', cardId: '4', channel: '智能售货柜', amount: -5.0, time: '2024-04-23 09:15', type: 'payment' },
+        ];
+
+        const MOCK_TOPUP_RECORDS = [
+            { id: 'r1', cardId: '1', amount: 100.0, time: '2024-04-15 09:00', type: 'topup' },
+            { id: 'r2', cardId: '1', amount: 200.0, time: '2024-04-16 14:30', type: 'topup' },
+            { id: 'r3', cardId: '2', amount: 50.0, time: '2024-04-18 10:20', type: 'topup' },
+            { id: 'r4', cardId: '4', amount: 300.0, time: '2024-04-20 11:45', type: 'topup' },
+            { id: 'r5', cardId: '1', amount: -20.0, time: '2024-04-21 16:00', type: 'deduction' },
+            { id: 'r6', cardId: '4', amount: 100.0, time: '2024-04-22 09:30', type: 'topup' },
+        ];
+
+        // Icon Component Wrapper for Standalone
+        const Icon = ({ name, className = "w-5 h-5" }) => {
+            const iconRef = useRef(null);
+            useEffect(() => {
+                if (iconRef.current) {
+                    lucide.createIcons({
+                        targets: [iconRef.current]
+                    });
+                }
+            }, [name]);
+            return <i data-lucide={name} className={className} ref={iconRef}></i>;
+        };
+
+        const WeChatHeader = ({ title, showBack = false, forceLight = false, onBack, style = {} }) => {
+            const finalStyle = forceLight ? {
+                bg: 'rgba(255,255,255,1)',
+                color: '#000',
+                cBg: 'rgba(0,0,0,0.05)',
+                cBorder: 'rgba(0,0,0,0.1)',
+                cIcon: '#000'
+            } : style;
+
+            return (
+                <div 
+                    style={{ backgroundColor: finalStyle.bg, color: finalStyle.color }}
+                    className="fixed top-0 left-0 right-0 z-50 max-w-md mx-auto transition-colors duration-200"
+                >
+                    <div className="h-6 flex items-center justify-between px-6 pt-1">
+                        <span className="text-[10px] font-bold">9:41</span>
+                        <div className="flex items-center gap-1">
+                            <Icon name="signal" className="w-3 h-3" />
+                            <Icon name="wifi" className="w-3 h-3" />
+                            <Icon name="battery" className="w-3 h-3" />
+                        </div>
+                    </div>
+                    <div className="h-11 flex items-center justify-between px-4">
+                        <div className="flex-1 flex items-center">
+                            {showBack && (
+                                <button onClick={onBack} className="p-2">
+                                    <Icon name="chevron-left" className="w-5 h-5 rotate-180" />
+                                </button>
+                            )}
+                        </div>
+                        <div className="flex-1 text-center font-bold text-sm truncate px-2">{title}</div>
+                        <div className="flex-1 flex justify-end">
+                            <div 
+                                style={{ backgroundColor: finalStyle.cBg, borderColor: finalStyle.cBorder, color: finalStyle.cIcon }}
+                                className="backdrop-blur-md border rounded-full h-8 flex items-center px-3 gap-3 transition-colors"
+                            >
+                                <Icon name="more-horizontal" className="w-4 h-4" />
+                                <div className="w-px h-3 bg-current opacity-20" />
+                                <Icon name="circle" className="w-3.5 h-3.5 fill-current" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('home');
+            const [mallSubTab, setMallSubTab] = useState('mall-home');
+            const [selectedMallCardIndex, setSelectedMallCardIndex] = useState(0);
+            const [isMallCardBottomSheetOpen, setIsMallCardBottomSheetOpen] = useState(false);
+            const [showMiniProgramModal, setShowMiniProgramModal] = useState(false);
+            const [activeCardIndex, setActiveCardIndex] = useState(0);
+            const [mineSubTab, setMineSubTab] = useState('main');
+            const [historyFilterCardId, setHistoryFilterCardId] = useState('all');
+            const [historyFilterChannel, setHistoryFilterChannel] = useState('all');
+            const [topupFilterCardId, setTopupFilterCardId] = useState('all');
+            const [pendingCardIndex, setPendingCardIndex] = useState(null);
+            const [showSwitchModal, setShowSwitchModal] = useState(false);
+            const [currentBanner, setCurrentBanner] = useState(0);
+            const [selectedPayCard, setSelectedPayCard] = useState(MOCK_CARDS[0]);
+            const [payType, setPayType] = useState('canteen');
+            const [isPayCardBottomSheetOpen, setIsPayCardBottomSheetOpen] = useState(false);
+            const [headerStyle, setHeaderStyle] = useState({
+                bg: 'rgba(255,255,255,0)',
+                color: '#fff',
+                cBg: 'rgba(0,0,0,0.15)',
+                cBorder: 'rgba(255,255,255,0.2)',
+                cIcon: '#fff'
+            });
+            
+            const handlePageScroll = (e) => {
+                const y = e.target.scrollTop;
+                const ratio = Math.min(y / 60, 1);
+                setHeaderStyle({
+                    bg: `rgba(255,255,255,${ratio})`,
+                    color: ratio > 0.5 ? '#000' : '#fff',
+                    cBg: ratio > 0.5 ? 'rgba(0,0,0,0.05)' : 'rgba(0,0,0,0.15)',
+                    cBorder: ratio > 0.5 ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.2)',
+                    cIcon: ratio > 0.5 ? '#000' : '#fff'
+                });
+            };
+
+            // Sync mall card with main card when entering mall
+            useEffect(() => {
+                if (activeTab === 'mall') {
+                    setSelectedMallCardIndex(activeCardIndex);
+                }
+                if (activeTab === 'pay') {
+                    setSelectedPayCard(MOCK_CARDS[activeCardIndex]);
+                }
+            }, [activeTab, activeCardIndex]);
+
+            useEffect(() => {
+                // Reset scroll style on tab change if not forceLight
+                if (['home', 'pay'].includes(activeTab)) {
+                    setHeaderStyle({
+                        bg: 'rgba(255,255,255,0)',
+                        color: '#fff',
+                        cBg: 'rgba(0,0,0,0.15)',
+                        cBorder: 'rgba(255,255,255,0.2)',
+                        cIcon: '#fff'
+                    });
+                }
+            }, [activeTab]);
+            
+            const scrollTimeoutRef = useRef(null);
+            const isProgrammaticScroll = useRef(false);
+            const cardScrollRef = useRef(null);
+            const observerRef = useRef(null);
+
+            useEffect(() => {
+                const timer = setInterval(() => {
+                    setCurrentBanner((prev) => (prev + 1) % MOCK_BANNERS.length);
+                }, 4000);
+                return () => clearInterval(timer);
+            }, []);
+
+            const activeEnterpriseId = MOCK_CARDS[activeCardIndex].id;
+            const filteredProducts = useMemo(() => 
+                MOCK_PRODUCTS.filter(p => p.enterpriseId === activeEnterpriseId),
+                [activeCardIndex]
+            );
+
+            // Authoritative scroll sync function
+            const scrollToCard = (index, behavior = 'smooth') => {
+                if (!cardScrollRef.current) return;
+                const container = cardScrollRef.current;
+                const targetCard = container.children[index];
+                if (targetCard) {
+                    isProgrammaticScroll.current = true;
+                    const targetLeft = targetCard.offsetLeft - (container.offsetWidth - targetCard.offsetWidth) / 2;
+                    container.scrollTo({
+                        left: targetLeft,
+                        behavior: behavior
+                    });
+                    
+                    // Unlock after animation
+                    setTimeout(() => {
+                        isProgrammaticScroll.current = false;
+                    }, 800);
+                }
+            };
+
+            // Sync on mount and tab change
+            useEffect(() => {
+                if (activeTab === 'home') {
+                    // Small delay to ensure DOM is ready
+                    const timer = setTimeout(() => scrollToCard(activeCardIndex, 'auto'), 50);
+                    return () => clearTimeout(timer);
+                }
+            }, [activeTab]);
+
+            const confirmSwitch = () => {
+                if (pendingCardIndex !== null) {
+                    const newIndex = pendingCardIndex;
+                    setActiveCardIndex(newIndex);
+                    // Ensure it stays there
+                    setTimeout(() => scrollToCard(newIndex, 'smooth'), 100);
+                }
+                setShowSwitchModal(false);
+                setPendingCardIndex(null);
+            };
+
+            const cancelSwitch = () => {
+                setShowSwitchModal(false);
+                setPendingCardIndex(null);
+                // Force scroll back to the original active card
+                setTimeout(() => scrollToCard(activeCardIndex, 'smooth'), 100);
+            };
+
+            const HomePage = () => (
+                <div className="flex-1 overflow-y-auto pb-32 fade-in no-scrollbar" onScroll={handlePageScroll}>
+                    <WeChatHeader title="饭卡通" style={headerStyle} />
+                    
+                    <div className="relative h-64 w-full overflow-hidden">
+                        <img
+                            src={MOCK_BANNERS[currentBanner].imageUrl}
+                            alt={MOCK_BANNERS[currentBanner].title}
+                            className="w-full h-full object-cover transition-opacity duration-700"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20" />
+                        <div className="absolute bottom-10 left-4 right-4 flex justify-between items-end">
+                            <div className="text-white">
+                                <h2 className="text-xl font-bold leading-tight">{MOCK_BANNERS[currentBanner].title}</h2>
+                                <p className="text-xs opacity-80 mt-1">饭卡通商城 · 专属优惠</p>
+                            </div>
+                            <div className="flex gap-1 mb-1">
+                                {MOCK_BANNERS.map((_, i) => (
+                                    <div key={i} className={`h-1 w-4 rounded-full ${i === currentBanner ? 'bg-white' : 'bg-white/40'}`} />
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="mt-[-30px] relative z-10">
+                        <div 
+                            ref={cardScrollRef}
+                            className="card-container flex overflow-x-auto snap-x snap-mandatory custom-scrollbar px-4 gap-3 pb-6 relative"
+                        >
+                            {MOCK_CARDS.map((card, idx) => (
+                                <div
+                                    key={card.id}
+                                    className={`snap-center shrink-0 w-[85%] ${card.color} h-24 rounded-[20px] p-4 text-white shadow-xl relative overflow-hidden flex items-center justify-between transition-all`}
+                                >
+                                    <div className="absolute -right-6 -top-6 w-16 h-16 bg-white/10 rounded-full blur-xl" />
+                                    
+                                    <div className="flex-1 flex flex-col justify-between h-full">
+                                        <div>
+                                            <div className="flex items-center gap-2">
+                                                <h3 className="text-[14px] font-extrabold truncate uppercase tracking-tight leading-none">{card.title}</h3>
+                                                {idx === activeCardIndex ? (
+                                                    <span className="text-[11px] bg-green-500/90 text-white px-2 py-0.5 rounded-md font-bold whitespace-nowrap shadow-sm">使用中</span>
+                                                ) : (
+                                                    <button 
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setPendingCardIndex(idx);
+                                                            setShowSwitchModal(true);
+                                                        }}
+                                                        className="text-[11px] bg-white/20 hover:bg-white/30 text-white px-2 py-0.5 rounded-md font-bold transition-colors cursor-pointer whitespace-nowrap ring-1 ring-white/20"
+                                                    >
+                                                        切换
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <p className="text-[9px] font-mono opacity-50 mt-1">ID: {card.cardId}</p>
+                                        </div>
+                                        <div className="flex items-baseline gap-1">
+                                            <span className="text-xl font-bold leading-none">
+                                                {card.balance !== null ? card.balance.toFixed(2) : '---'}
+                                            </span>
+                                            <span className="text-[8px] opacity-60 font-bold">余额</span>
+                                        </div>
+                                    </div>
+
+                                    {card.id !== '3' && (
+                                        <div className="flex flex-col items-center justify-center h-full -mt-3">
+                                            <div 
+                                                className="bg-white/20 px-4 py-2.5 rounded-2xl backdrop-blur-md active:scale-95 transition-transform cursor-pointer flex flex-col items-center gap-0.5"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    if (idx !== activeCardIndex) {
+                                                        setPendingCardIndex(idx);
+                                                        setShowSwitchModal(true);
+                                                    } else {
+                                                        setSelectedPayCard(card);
+                                                        setActiveTab('pay');
+                                                    }
+                                                }}
+                                            >
+                                                <Icon name="qr-code" className="w-7 h-7" />
+                                                <span className="text-[10px] font-black opacity-90 tracking-tighter">去付款</span>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {card.isSubCard && (
+                                        <div className="absolute bottom-0 right-0 bg-gradient-to-l from-orange-600 to-orange-400 text-white px-4 py-1 rounded-tl-[16px] shadow-[0_-4px_12px_rgba(0,0,0,0.1)] font-black text-[10px] tracking-widest flex items-center justify-center border-t border-l border-white/30 z-20">
+                                            副卡
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                        
+                        {/* Card Indicator Dots */}
+                        <div className="flex justify-center gap-1.5 mt-[-10px] mb-4">
+                            {MOCK_CARDS.map((_, i) => (
+                                <div 
+                                    key={i} 
+                                    className={`h-1.5 rounded-full transition-all duration-300 ${i === activeCardIndex ? 'w-6 bg-blue-600' : 'w-1.5 bg-gray-300'}`}
+                                />
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Quick Actions Grid - Dynamic based on card */}
+                    {(() => {
+                        const activeActions = [
+                            { id: 'jingxuan', icon: 'truck', label: '鲸选到家', color: 'text-blue-500', bg: 'bg-blue-50' },
+                            { id: 'box', icon: 'box', label: '智能柜', color: 'text-purple-500', bg: 'bg-purple-50' },
+                            { id: 'canteen', icon: 'calendar', label: '食堂订餐', color: 'text-green-500', bg: 'bg-green-50' },
+                            { id: 'mall', icon: 'shopping-cart', label: '全国商城', color: 'text-red-500', bg: 'bg-red-50' },
+                        ].filter(a => MOCK_CARDS[activeCardIndex].allowedChannels.includes(a.id));
+
+                        if (activeActions.length === 0 || (activeActions.length === 1 && activeActions[0].id === 'mall')) {
+                            return null;
+                        }
+
+                        return (
+                            <div className="px-4 mt-2">
+                                <div className="bg-white rounded-[16px] py-2 px-3 grid grid-cols-4 gap-2 shadow-sm border border-gray-50 text-center">
+                                    {activeActions.map((action, i) => (
+                                        <button 
+                                            key={i} 
+                                            onClick={() => {
+                                                if (action.id === 'jingxuan') {
+                                                    setShowMiniProgramModal(true);
+                                                } else if (action.id === 'mall') {
+                                                    setSelectedMallCardIndex(activeCardIndex);
+                                                    setActiveTab('mall');
+                                                    setMallSubTab('mall-home');
+                                                }
+                                            }}
+                                            className="flex flex-col items-center gap-1 active:scale-90 transition-transform"
+                                        >
+                                            <div className={`w-10 h-10 ${action.bg} rounded-xl flex items-center justify-center`}>
+                                                <Icon name={action.icon} className={`w-5 h-5 ${action.color}`} />
+                                            </div>
+                                            <span className="text-[14px] font-black text-gray-700 whitespace-nowrap">{action.label}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    <div className="px-4 mt-8">
+                        <div className="flex justify-between items-center mb-5 px-1">
+                            <div className="flex flex-col">
+                                <div className="flex items-center gap-2">
+                                    <h2 className="text-xl font-bold">{MOCK_CARDS[activeCardIndex].title}商城</h2>
+                                    <span className="text-[10px] bg-red-500 text-white px-2 py-0.5 rounded-full font-bold">爆款</span>
+                                </div>
+                                <p className="text-[10px] text-blue-600 font-bold mt-1">
+                                    正在浏览 [{MOCK_CARDS[activeCardIndex].title}] 专属商品
+                                </p>
+                            </div>
+                            <button 
+                                onClick={() => {
+                                    setSelectedMallCardIndex(activeCardIndex);
+                                    setActiveTab('mall');
+                                    setMallSubTab('mall-home');
+                                }}
+                                className="text-xs text-blue-600 font-bold flex items-center gap-0.5 active:scale-95 transition-transform"
+                            >
+                                更多 <Icon name="chevron-right" className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            {filteredProducts.map((product) => (
+                                <div key={product.id} className="bg-white rounded-3xl overflow-hidden shadow-sm border border-gray-100 flex flex-col active:translate-y-[-4px] transition-transform">
+                                    <div className="relative aspect-square overflow-hidden bg-gray-50">
+                                        <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
+                                        {product.tag && (
+                                            <div className="absolute top-3 left-3 bg-orange-500 text-white text-[10px] px-2 py-0.5 rounded-lg font-bold">
+                                                {product.tag}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="p-4 flex-1 flex flex-col justify-between">
+                                        <h3 className="text-xs font-bold text-gray-800 line-clamp-2 leading-relaxed h-8">{product.name}</h3>
+                                        <div className="mt-3 flex items-center justify-between">
+                                            <div className="flex items-baseline gap-0.5">
+                                                <span className="text-[10px] font-bold text-red-500">¥</span>
+                                                <span className="text-base font-bold text-red-500">{product.price.toFixed(1)}</span>
+                                            </div>
+                                            <button className="bg-blue-600 p-2 rounded-xl">
+                                                <Icon name="shopping-cart" className="w-3.5 h-3.5 text-white" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </div>
+            );
+
+            const PayPage = () => (
+                <div className="flex-1 bg-[#F8F9FB] flex flex-col h-full overflow-y-auto pb-32 px-0 fade-in no-scrollbar" onScroll={handlePageScroll}>
+                    <WeChatHeader title="付款码" showBack onBack={() => setActiveTab('home')} style={headerStyle} />
+                    <div className="pt-24 px-6">
+                        <div className="bg-white w-full rounded-[40px] overflow-hidden shadow-xl flex flex-col">
+                            <div className={`${selectedPayCard.color} p-6 text-white flex justify-between items-center`}>
+                                <div className="flex items-center gap-3">
+                                    <div className="bg-white/20 p-2.5 rounded-2xl">
+                                        <Icon name="qr-code" className="w-6 h-6" />
+                                    </div>
+                                    <div>
+                                        <h3 className="font-bold text-lg">付款码</h3>
+                                        <p className="text-xs opacity-80">{selectedPayCard.title}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div className="p-8 flex flex-col items-center gap-8">
+                                <div className="w-full">
+                                    <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-2 px-1">正在使用的饭卡</p>
+                                    <button 
+                                        onClick={() => setIsPayCardBottomSheetOpen(true)}
+                                        className="w-full bg-gray-50/50 border border-gray-100 rounded-3xl p-4 flex items-center justify-between active:scale-[0.98] transition-all"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-10 h-6 ${selectedPayCard.color} rounded-lg shadow-sm`} />
+                                            <div className="text-left font-black text-sm text-gray-900">
+                                                {selectedPayCard.title}
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[10px] text-blue-600 font-black">切换卡片</span>
+                                            <Icon name="chevron-right" className="w-3.5 h-3.5 text-blue-600" />
+                                        </div>
+                                    </button>
+                                </div>
+
+                                <div className="bg-gray-50 p-6 rounded-[40px] border border-gray-100 w-full flex flex-col items-center gap-6">
+                                    <div className="bg-white p-8 rounded-3xl shadow-inner">
+                                        <Icon name="qr-code" className="w-56 h-56 text-gray-800" />
+                                    </div>
+                                    <div className="text-center">
+                                        <p className="text-xs text-gray-400 mb-2">自动刷新中，请勿泄露</p>
+                                        <p className="font-mono text-lg font-bold tracking-[0.3em] text-gray-700">{selectedPayCard.cardId}</p>
+                                    </div>
+                                </div>
+                                
+                                <div className="w-full bg-gray-100 p-2 rounded-3xl flex gap-2">
+                                    <button 
+                                        onClick={() => setPayType('canteen')}
+                                        className={`flex-1 py-4 rounded-2xl text-sm font-bold transition-all ${
+                                            payType === 'canteen' ? 'bg-white text-blue-600 shadow-md' : 'text-gray-500'
+                                        }`}
+                                    >
+                                        食堂付款码
+                                    </button>
+                                    <button 
+                                        onClick={() => setPayType('store')}
+                                        className={`flex-1 py-4 rounded-2xl text-sm font-bold transition-all ${
+                                            payType === 'store' ? 'bg-white text-blue-600 shadow-md' : 'text-gray-500'
+                                        }`}
+                                    >
+                                        门店消费码
+                                    </button>
+                                </div>
+
+                                <div className="flex items-center gap-2 text-xs text-gray-400">
+                                    <Icon name="box" className="w-4 h-4" />
+                                    <span>支持食堂、联华门店、智能柜等场景</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+
+            const TransactionHistoryPage = () => {
+                const uniqueChannels = Array.from(new Set(MOCK_TRANSACTIONS.map(t => t.channel)));
+                
+                const filteredTransactions = MOCK_TRANSACTIONS.filter(t => {
+                    const cardMatch = historyFilterCardId === 'all' || t.cardId === historyFilterCardId;
+                    const channelMatch = historyFilterChannel === 'all' || t.channel === historyFilterChannel;
+                    return cardMatch && channelMatch;
+                });
+
+                return (
+                    <div className="flex-1 bg-[#F8F9FB] flex flex-col h-full fade-in">
+                        <WeChatHeader 
+                            title="消费记录" 
+                            showBack 
+                            forceLight 
+                            onBack={() => setMineSubTab('main')} 
+                        />
+                        
+                        {/* Filters Sticky Header */}
+                        <div className="pt-24 px-6 pb-4 bg-white/80 backdrop-blur-md sticky top-0 z-30 space-y-3">
+                            <div className="flex gap-2">
+                                <div className="flex-1">
+                                    <p className="text-[10px] text-gray-400 font-bold mb-1.5 ml-1">选择饭卡</p>
+                                    <div className="relative">
+                                        <select 
+                                            value={historyFilterCardId}
+                                            onChange={(e) => setHistoryFilterCardId(e.target.value)}
+                                            className="w-full bg-gray-50 border-none rounded-2xl px-4 py-2.5 text-xs font-bold text-gray-700 appearance-none focus:ring-2 focus:ring-blue-100 pr-10"
+                                        >
+                                            <option value="all">全部饭卡</option>
+                                            {MOCK_CARDS.map(c => (
+                                                <option key={c.id} value={c.id}>{c.title}</option>
+                                            ))}
+                                        </select>
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                                            <Icon name="chevron-right" className="w-4 h-4 text-gray-400 rotate-90" />
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="flex-1">
+                                    <p className="text-[10px] text-gray-400 font-bold mb-1.5 ml-1">消费渠道</p>
+                                    <div className="relative">
+                                        <select 
+                                            value={historyFilterChannel}
+                                            onChange={(e) => setHistoryFilterChannel(e.target.value)}
+                                            className="w-full bg-gray-50 border-none rounded-2xl px-4 py-2.5 text-xs font-bold text-gray-700 appearance-none focus:ring-2 focus:ring-blue-100 pr-10"
+                                        >
+                                            <option value="all">全部渠道</option>
+                                            {uniqueChannels.map(ch => (
+                                                <option key={ch} value={ch}>{ch}</option>
+                                            ))}
+                                        </select>
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                                            <Icon name="chevron-right" className="w-4 h-4 text-gray-400 rotate-90" />
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Transaction List */}
+                        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3 pb-32 no-scrollbar">
+                            {filteredTransactions.length > 0 ? (
+                                filteredTransactions.map(t => {
+                                    const card = MOCK_CARDS.find(c => c.id === t.cardId);
+                                    let iconName = 'file-text';
+                                    if(t.channel === '员工食堂') iconName = 'home';
+                                    if(t.channel === '联华超市') iconName = 'shopping-cart';
+                                    if(t.channel === '智能售货柜') iconName = 'box';
+                                    if(t.channel === '线上商城') iconName = 'package';
+
+                                    return (
+                                        <div 
+                                            key={t.id} 
+                                            className="bg-white p-5 rounded-[32px] shadow-sm border border-gray-50 flex items-center justify-between"
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${t.type === 'refund' ? 'bg-green-50' : 'bg-gray-50'}`}>
+                                                    <Icon name={iconName} className={`w-6 h-6 ${t.type === 'refund' ? 'text-green-600' : 'text-gray-400'}`} />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-black text-gray-900">{t.channel}</p>
+                                                    <p className="text-[10px] text-gray-400 mt-0.5">{t.time} · {card ? card.title : '未知卡片'}</p>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className={`text-base font-black ${t.type === 'refund' ? 'text-green-600' : 'text-gray-900'}`}>
+                                                    {t.type === 'refund' ? '+' : ''}{t.amount.toFixed(2)}
+                                                </p>
+                                                <p className="text-[9px] text-gray-400 font-bold uppercase">{t.type === 'refund' ? '退款成功' : '支付完成'}</p>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            ) : (
+                                <div className="pt-20 flex flex-col items-center text-center opacity-40">
+                                    <Icon name="file-text" className="w-16 h-16 mb-4" />
+                                    <p className="text-sm font-bold">暂无相关消费记录</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+            };
+
+            const TopUpHistoryPage = () => {
+                const filteredRecords = MOCK_TOPUP_RECORDS.filter(r => {
+                    return topupFilterCardId === 'all' || r.cardId === topupFilterCardId;
+                });
+
+                return (
+                    <div className="flex-1 bg-[#F8F9FB] flex flex-col h-full fade-in">
+                        <WeChatHeader 
+                            title="充值记录" 
+                            showBack 
+                            forceLight 
+                            onBack={() => setMineSubTab('main')} 
+                        />
+                        
+                        {/* Filters Sticky Header */}
+                        <div className="pt-24 px-6 pb-4 bg-white/80 backdrop-blur-md sticky top-0 z-30 space-y-3">
+                            <div className="flex-1">
+                                <p className="text-[10px] text-gray-400 font-bold mb-1.5 ml-1">选择饭卡</p>
+                                <div className="relative">
+                                    <select 
+                                        value={topupFilterCardId}
+                                        onChange={(e) => setTopupFilterCardId(e.target.value)}
+                                        className="w-full bg-gray-50 border-none rounded-2xl px-4 py-2.5 text-xs font-bold text-gray-700 appearance-none focus:ring-2 focus:ring-blue-100 pr-10"
+                                    >
+                                        <option value="all">全部饭卡</option>
+                                        {MOCK_CARDS.map(c => (
+                                            <option key={c.id} value={c.id}>{c.title}</option>
+                                        ))}
+                                    </select>
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                                        <Icon name="chevron-right" className="w-4 h-4 text-gray-400 rotate-90" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Records List */}
+                        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3 pb-32 no-scrollbar">
+                            {filteredRecords.length > 0 ? (
+                                filteredRecords.map(r => {
+                                    const card = MOCK_CARDS.find(c => c.id === r.cardId);
+                                    return (
+                                        <div 
+                                            key={r.id} 
+                                            className="bg-white p-5 rounded-[32px] shadow-sm border border-gray-50 flex items-center justify-between"
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${r.type === 'topup' ? 'bg-blue-50' : 'bg-red-50'}`}>
+                                                    <Icon name="credit-card" className={`w-6 h-6 ${r.type === 'topup' ? 'text-blue-600' : 'text-red-600'}`} />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-black text-gray-900">{r.type === 'topup' ? '微信充值' : '系统扣减'}</p>
+                                                    <p className="text-[10px] text-gray-400 mt-0.5">{r.time} · {card ? card.title : '未知卡片'}</p>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className={`text-base font-black ${r.type === 'topup' ? 'text-blue-600' : 'text-red-500'}`}>
+                                                    {r.type === 'topup' ? '+' : ''}{r.amount.toFixed(2)}
+                                                </p>
+                                                <p className="text-[9px] text-gray-400 font-bold uppercase">{r.type === 'topup' ? '充值成功' : '扣款完成'}</p>
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            ) : (
+                                <div className="pt-20 flex flex-col items-center text-center opacity-40">
+                                    <Icon name="credit-card" className="w-16 h-16 mb-4" />
+                                    <p className="text-sm font-bold">暂无相关充值记录</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+            };
+
+            const MinePage = () => {
+                if (mineSubTab === 'transactions') return <TransactionHistoryPage />;
+                if (mineSubTab === 'topup') return <TopUpHistoryPage />;
+
+                return (
+                    <div className="flex-1 bg-[#F8F9FB] flex flex-col h-full overflow-y-auto pb-32 fade-in no-scrollbar" onScroll={handlePageScroll}>
+                        <div className="flex-1 flex flex-col h-full">
+                            <WeChatHeader title="个人中心" forceLight />
+                            
+                            <div className="pt-24 px-6 pb-8 bg-white rounded-b-[40px] shadow-sm">
+                                <div className="flex items-center gap-4">
+                                    <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center overflow-hidden border-4 border-blue-50">
+                                        <Icon name="user" className="w-10 h-10 text-blue-600" />
+                                    </div>
+                                    <div>
+                                        <h2 className="text-2xl font-bold text-gray-900">饭卡通用户</h2>
+                                        <p className="text-sm text-gray-500 mt-1">ID: 88886666</p>
+                                        <div className="mt-2 inline-flex items-center gap-1 bg-green-50 text-green-600 text-[10px] px-2 py-0.5 rounded-full font-bold">
+                                            <Icon name="circle" className="w-2 h-2 fill-current" />
+                                            已实名认证
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="px-4 mt-6 space-y-4">
+                                <div className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-gray-50">
+                                    {[
+                                        { id: 'family', icon: 'users', label: '亲情卡', sub: '绑定家人的副卡', color: 'text-orange-500', bg: 'bg-orange-50' },
+                                        { id: 'transactions', icon: 'file-text', label: '消费记录', sub: '查看历史消费详情', color: 'text-blue-500', bg: 'bg-blue-50' },
+                                        { id: 'topup', icon: 'credit-card', label: '充值记录', sub: '查看历史充值详情', color: 'text-green-500', bg: 'bg-green-50' },
+                                    ].map((item, i) => (
+                                        <button 
+                                            key={i} 
+                                            onClick={() => {
+                                                if(item.id === 'transactions') setMineSubTab('transactions');
+                                                if(item.id === 'topup') setMineSubTab('topup');
+                                            }}
+                                            className={`w-full flex items-center justify-between p-5 active:bg-gray-50 transition-colors ${i !== 2 ? 'border-b border-gray-50' : ''}`}
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <div className={`w-10 h-10 ${item.bg} rounded-2xl flex items-center justify-center`}>
+                                                    <Icon name={item.icon} className={`w-5 h-5 ${item.color}`} />
+                                                </div>
+                                                <div className="text-left">
+                                                    <p className="text-sm font-bold text-gray-800">{item.label}</p>
+                                                    <p className="text-[10px] text-gray-400">{item.sub}</p>
+                                                </div>
+                                            </div>
+                                            <Icon name="chevron-right" className="w-5 h-5 text-gray-300" />
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <div className="bg-white rounded-[32px] overflow-hidden shadow-sm border border-gray-50">
+                                    {[
+                                        { icon: 'lock', label: '修改支付密码', color: 'text-purple-500', bg: 'bg-purple-50' },
+                                        { icon: 'settings', label: '系统设置', color: 'text-gray-500', bg: 'bg-gray-50' },
+                                    ].map((item, i) => (
+                                        <button key={i} className={`w-full flex items-center justify-between p-5 active:bg-gray-50 transition-colors ${i !== 1 ? 'border-b border-gray-50' : ''}`}>
+                                            <div className="flex items-center gap-4">
+                                                <div className={`w-10 h-10 ${item.bg} rounded-2xl flex items-center justify-center`}>
+                                                    <Icon name={item.icon} className={`w-5 h-5 ${item.color}`} />
+                                                </div>
+                                                <div className="text-left">
+                                                    <p className="text-sm font-bold text-gray-800">{item.label}</p>
+                                                </div>
+                                            </div>
+                                            <Icon name="chevron-right" className="w-5 h-5 text-gray-300" />
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <button 
+                                    className="w-full bg-white text-red-500 font-bold py-5 rounded-[32px] shadow-sm border border-gray-50 flex items-center justify-center gap-2 active:scale-[0.98] transition-transform"
+                                >
+                                    <Icon name="log-out" className="w-5 h-5" />
+                                    <span>退出登录</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            };
+
+            return (
+                <div className="app-frame">
+                    <div className="flex-1 relative h-full overflow-hidden flex flex-col">
+                        {activeTab === 'home' && <HomePage />}
+                        {activeTab === 'pay' && <PayPage />}
+                        {activeTab === 'mine' && <MinePage />}
+                        {activeTab === 'mall' && (
+                            <div className="flex-1 flex flex-col h-full bg-[#f7f7f7] overflow-hidden">
+                                {/* WeChat Style Status Bar Simulator */}
+                                <div className="h-10 z-[60] flex items-center justify-between px-6 pointer-events-none sticky top-0 bg-[#ff3d3d]">
+                                   <span className="text-white text-[12px] font-bold">14:41</span>
+                                   <div className="flex items-center gap-2">
+                                     <Icon name="signal" className="w-3 h-3 text-white fill-current" />
+                                     <Icon name="wifi" className="w-3 h-3 text-white" />
+                                     <Icon name="battery" className="w-4 h-4 text-white" />
+                                   </div>
+                                </div>
+
+                                {/* Red Theme Custom Header */}
+                                <div className="bg-[#ff3d3d] pb-4 sticky top-10 z-50">
+                                    <div className="px-4 h-12 flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <button 
+                                                onClick={() => setActiveTab('home')}
+                                                className="text-white font-black text-[22px] tracking-tight drop-shadow-sm active:scale-95 transition-transform"
+                                            >
+                                                饭卡通
+                                            </button>
+                                            
+                                            <button 
+                                                onClick={() => setIsMallCardBottomSheetOpen(true)}
+                                                className="bg-black/10 backdrop-blur-sm border border-white/20 rounded-full py-1.5 px-3 flex items-center gap-1.5 active:scale-95 transition-all max-w-[120px]"
+                                            >
+                                                <Icon name="credit-card" className="w-3 h-3 text-white/80" />
+                                                <span className="text-white text-[11px] font-black truncate">
+                                                    {MOCK_CARDS[selectedMallCardIndex].title}
+                                                </span>
+                                                <Icon name="chevron-down" className="w-3 h-3 text-white/60 ml-0.5" />
+                                            </button>
+                                        </div>
+
+                                        <div className="bg-black/20 backdrop-blur-md border border-white/10 rounded-full h-8 px-3 flex items-center gap-4">
+                                            <div className="flex items-center gap-1.5">
+                                                <Icon name="circle" className="w-1 h-1 text-white/40 fill-current" />
+                                                <Icon name="circle" className="w-2 h-2 text-white fill-current" />
+                                                <Icon name="circle" className="w-1 h-1 text-white/40 fill-current" />
+                                            </div>
+                                            <div className="w-[1px] h-3 bg-white/20" />
+                                            <div className="w-5 h-5 border-2 border-white rounded-full flex items-center justify-center">
+                                                <Icon name="circle" className="w-2 h-2 text-white fill-current" />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="px-4 mt-1">
+                                        <div className="bg-white h-10 rounded-full flex items-center pl-4 pr-1 gap-2 shadow-lg">
+                                            <Icon name="search" className="w-4 h-4 text-gray-400" />
+                                            <input type="text" placeholder="搜索商品" className="flex-1 text-[13px] outline-none bg-transparent font-medium" />
+                                            <button className="bg-gradient-to-r from-[#ff7e5f] to-[#ff4b2b] text-white h-8 px-5 rounded-full text-[13px] font-black active:scale-95 transition-transform shadow-sm">
+                                                搜索
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="flex-1 flex flex-col overflow-hidden relative">
+                                    <div className="flex-1 overflow-y-auto no-scrollbar pb-48 h-full">
+                                            {mallSubTab === 'mall-home' && (
+                                                <div className="fade-in">
+                                                    <div className="px-4 mt-4 h-48 relative">
+                                                        <div className="w-full h-full rounded-2xl overflow-hidden shadow-lg relative">
+                                                            <img src="https://picsum.photos/seed/mall_hero/800/400" className="w-full h-full object-cover" />
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex justify-around py-4 px-2 text-[10px] text-gray-500 font-bold bg-white mb-2 shadow-sm">
+                                                        <div className="flex items-center gap-1"><Icon name="check-circle" className="w-3.5 h-3.5 text-[#ff3d3d]" /> 48h发货</div>
+                                                        <div className="flex items-center gap-1"><Icon name="check-circle" className="w-3.5 h-3.5 text-[#ff3d3d]" /> 正品保障</div>
+                                                        <div className="flex items-center gap-1"><Icon name="check-circle" className="w-3.5 h-3.5 text-[#ff3d3d]" /> 售后无忧</div>
+                                                    </div>
+                                                    <div className="px-4 mt-2">
+                                                        <div className="bg-white rounded-3xl p-5 grid grid-cols-5 gap-y-5 shadow-sm">
+                                                            {[
+                                                                { label: '食品饮料', img: 'food' }, { label: '居家生活', img: 'home' }, 
+                                                                { label: '美妆护肤', img: 'beauty' }, { label: '数码家电', img: 'tech' }, { label: '服饰箱包', img: 'bag' },
+                                                                { label: '生鲜水果', img: 'fruit' }, { label: '个人护理', img: 'care' }, { label: '母婴玩具', img: 'baby' },
+                                                                { label: '医药健康', img: 'health' }, { label: '全部分类', icon: 'box' },
+                                                            ].map((item, i) => (
+                                                                <div key={i} className="flex flex-col items-center gap-1.5 active:scale-95 transition-all">
+                                                                    <div className="w-12 h-12 rounded-2xl overflow-hidden bg-gray-50 flex items-center justify-center">
+                                                                        {item.icon ? <Icon name={item.icon} className="w-6 h-6 text-gray-400" /> : <img src={`https://picsum.photos/seed/mall_${item.img}/100/100`} className="w-full h-full object-cover" />}
+                                                                    </div>
+                                                                    <span className="text-[10px] font-black text-gray-700">{item.label}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                    <div className="px-4 mt-4">
+                                                        <div className="bg-white rounded-3xl p-5 shadow-sm border border-red-50">
+                                                            <div className="flex justify-between items-center mb-4">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-lg font-black italic text-[#ff3d3d]">限时秒杀</span>
+                                                                    <div className="flex gap-1 text-[#ff3d3d] text-[10px] font-bold">
+                                                                        <span className="bg-[#ff3d3d] text-white px-1 rounded">09</span>:
+                                                                        <span className="bg-[#ff3d3d] text-white px-1 rounded">58</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                            <div className="grid grid-cols-4 gap-3">
+                                                                {[1,2,3,4].map(i => (
+                                                                    <div key={i} className="aspect-square bg-gray-50 rounded-xl overflow-hidden shadow-inner">
+                                                                        <img src={`https://picsum.photos/seed/mallitem${i}/100/100`} className="w-full h-full object-cover" />
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {mallSubTab === 'mall-category' && (
+                                                <div className="fade-in bg-white min-h-full">
+                                                    <div className="flex gap-4 px-4 py-3 overflow-x-auto no-scrollbar whitespace-nowrap border-b border-gray-50">
+                                                        {['休闲零食', '粮油调味', '酒水饮料', '个护清洁'].map((cat, i) => (
+                                                            <div key={i} className={`px-4 py-1.5 rounded-full text-xs font-bold ${i === 0 ? 'bg-red-50 text-[#ff3d3d] border border-[#ff3d3d]' : 'bg-gray-50 text-gray-500'}`}>
+                                                                {cat}
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    <div className="flex h-full pb-32">
+                                                        <div className="w-24 bg-gray-50 h-full overflow-y-auto no-scrollbar text-[11px] text-gray-500">
+                                                            {['全部', '热销推荐', '咖啡', '坚果炒货', '进口零食'].map((cat, i) => (
+                                                                <div key={i} className={`py-4 px-3 ${i === 0 ? 'bg-white text-gray-900 font-black border-l-4 border-red-500' : ''}`}>
+                                                                    {cat}
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    <div className="flex-1 p-4 space-y-6 overflow-y-auto h-full">
+                                                        {[1,2,3,4].map(i => (
+                                                            <div key={i} className="flex gap-3 relative">
+                                                                <div className="bg-red-600 text-white px-2 py-0.5 rounded-br-xl text-[10px] font-black absolute top-0 left-0 z-10 scale-90 origin-top-left font-bold">自营</div>
+                                                                <div className="w-20 h-20 rounded-xl bg-gray-100 overflow-hidden shrink-0 shadow-inner">
+                                                                    <img src={`https://picsum.photos/seed/mallitem${i+30}/150/150`} className="w-full h-full object-cover" />
+                                                                </div>
+                                                                <div className="flex-1 flex flex-col justify-between py-1">
+                                                                    <div className="space-y-1">
+                                                                        <p className="text-[13px] font-black text-gray-900 line-clamp-2 leading-snug">
+                                                                            <span className="bg-red-50 text-red-600 px-1 py-0.5 rounded text-[10px] mr-1 border border-red-100">超值</span>
+                                                                            三只松鼠 每日坚果 礼盒装 750g/箱
+                                                                        </p>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className="text-[10px] text-gray-400 font-bold">1.2w+评价</span>
+                                                                            <span className="text-[10px] text-orange-500 font-bold">精选好物</span>
+                                                                        </div>
+                                                                    </div>
+                                                                    <div className="flex justify-between items-end">
+                                                                        <span className="text-[#ff3d3d] font-black text-sm italic">¥88.00</span>
+                                                                        <div className="bg-[#ff3d3d] px-3 py-1 rounded-full text-white text-[10px] font-black active:scale-90">抢</div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {mallSubTab === 'mall-cart' && (
+                                                <div className="fade-in bg-[#f7f7f7] min-h-full">
+                                                    <div className="bg-white py-4 px-4 shadow-sm"><h2 className="text-lg font-black italic text-[#ff3d3d]">购物车</h2></div>
+                                                    <div className="p-4 space-y-4">
+                                                        <div className="bg-white rounded-3xl p-4 flex gap-3 shadow-sm">
+                                                            <div className="w-20 h-20 rounded-2xl bg-gray-50 overflow-hidden shrink-0"><img src="https://picsum.photos/seed/cart1/150/150" className="w-full h-full object-cover" /></div>
+                                                            <div className="flex-1 flex flex-col justify-between">
+                                                                <p className="text-sm font-black text-gray-800">怡宝 饮用纯净水 555ml*12</p>
+                                                                <div className="flex justify-between items-center"><span className="text-[#ff3d3d] font-black">¥16.80</span><span className="bg-gray-100 px-3 py-1 rounded-full text-xs font-bold">1 件</span></div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            {mallSubTab === 'mall-mine' && (
+                                                <div className="fade-in bg-[#f7f7f7] min-h-full">
+                                                    <div className="bg-white py-8 px-6 rounded-b-[40px] shadow-sm relative overflow-hidden">
+                                                        <div className="flex items-center gap-4">
+                                                            <div className="w-20 h-20 rounded-full border-4 border-white shadow-xl overflow-hidden bg-gray-50"><img src="https://picsum.photos/seed/u1/100/100" /></div>
+                                                            <div><h2 className="text-xl font-black text-gray-900">a55ca3d8</h2><p className="text-[10px] bg-gray-100 text-gray-400 font-bold px-2 py-0.5 rounded inline">ID 13989850712</p></div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="p-4 mt-4 space-y-4 relative z-10 -mt-6">
+                                                        <div className="bg-white rounded-[32px] p-6 shadow-xl border border-gray-50 mb-4">
+                                                            <div className="flex justify-between items-center mb-6">
+                                                                <p className="text-sm font-black italic">订单中心</p>
+                                                                <span className="text-[10px] text-gray-300 font-bold">我的全部订单 &gt;</span>
+                                                            </div>
+                                                            <div className="flex justify-around">
+                                                                {[
+                                                                    { label: '待付款', icon: 'credit-card' }, { label: '待发货', icon: 'package' }, 
+                                                                    { label: '待收货', icon: 'truck' }, { label: '已完成', icon: 'check-circle' }
+                                                                ].map((l, i) => (
+                                                                    <div key={i} className="flex flex-col items-center gap-2">
+                                                                        <div className="w-10 h-10 bg-red-50 rounded-2xl flex items-center justify-center shadow-sm">
+                                                                            <Icon name={l.icon} className="w-5 h-5 text-[#ff3d3d]" />
+                                                                        </div>
+                                                                        <span className="text-[10px] font-black text-gray-600">{l.label}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                        <div className="bg-white rounded-[32px] p-6 shadow-sm border border-gray-50">
+                                                            <p className="text-sm font-black mb-6">我的服务</p>
+                                                            <div className="grid grid-cols-4 gap-y-8">
+                                                                {[
+                                                                    { label: '地址管理', icon: 'map-pin' }, { label: '联系客服', icon: 'phone' }, 
+                                                                    { label: '领券中心', icon: 'tag' }, { label: '我的收藏', icon: 'star' }
+                                                                ].map((s, i) => (
+                                                                    <div key={i} className="flex flex-col items-center gap-2">
+                                                                        <Icon name={s.icon} className="w-6 h-6 text-gray-800" />
+                                                                        <span className="text-[11px] font-black text-gray-600">{s.label}</span>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </div>
+                                    {/* Sub Mall Tab Bar - Bottom aligned to cover main tabs */}
+                                    <div className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-100 h-24 flex items-center justify-around pb-6 px-2 z-50 shadow-[0_-8px_15px_-3px_rgba(0,0,0,0.1)]">
+                                        {[
+                                            { id: 'mall-home', icon: 'home', label: '首页' },
+                                            { id: 'mall-category', icon: 'truck', label: '分类' },
+                                            { id: 'mall-cart', icon: 'shopping-cart', label: '购物车' },
+                                            { id: 'mall-mine', icon: 'user', label: '我的' },
+                                        ].map(tb => (
+                                            <button key={tb.id} onClick={() => setMallSubTab(tb.id)} className={`flex flex-col items-center flex-1 transition-all ${mallSubTab === tb.id ? 'text-[#ff3d3d] scale-110' : 'text-gray-300'}`}>
+                                                <Icon name={tb.icon} className="w-4 h-4" /><span className="text-[8px] font-black">{tb.label}</span>
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Switch Confirmation Modal */}
+                        {showSwitchModal && pendingCardIndex !== null && (
+                            <div className="fixed inset-0 z-[100] flex items-center justify-center px-6 fade-in">
+                                <div 
+                                    onClick={cancelSwitch}
+                                    className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+                                />
+                                <div className="bg-white w-full max-w-xs rounded-[32px] overflow-hidden shadow-2xl relative z-10 scale-in">
+                                    <div className="p-8 text-center">
+                                        <div className={`w-16 h-16 ${MOCK_CARDS[pendingCardIndex].color} rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-lg`}>
+                                            <Icon name="credit-card" className="w-8 h-8 text-white" />
+                                        </div>
+                                        <h3 className="text-lg font-bold text-gray-900 mb-2">切换企业卡片？</h3>
+                                        <p className="text-sm text-gray-500 leading-relaxed">
+                                            即将切换至 <span className="font-bold text-gray-800">[{MOCK_CARDS[pendingCardIndex].title}]</span>，下方的功能和商城内容将随之改变。
+                                        </p>
+                                    </div>
+                                    <div className="flex border-t border-gray-100">
+                                        <button 
+                                            onClick={cancelSwitch}
+                                            className="flex-1 py-5 text-sm font-bold text-gray-400 active:bg-gray-50 transition-colors"
+                                        >
+                                            取消
+                                        </button>
+                                        <div className="w-px bg-gray-100" />
+                                        <button 
+                                            onClick={confirmSwitch}
+                                            className="flex-1 py-5 text-sm font-bold text-blue-600 active:bg-gray-50 transition-colors"
+                                        >
+                                            确定切换
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Payment Card Selector Bottom Sheet */}
+                        {isPayCardBottomSheetOpen && (
+                            <div className="fixed inset-0 z-[200] flex items-end justify-center px-0">
+                                <div onClick={() => setIsPayCardBottomSheetOpen(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm fade-in" />
+                                <div className="bg-white w-full max-w-md rounded-t-[40px] overflow-hidden shadow-2xl relative z-10 p-6 font-sans bottom-sheet-in">
+                                    <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-6" />
+                                    <h3 className="text-lg font-black text-center mb-6">切换付款饭卡</h3>
+                                    <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 no-scrollbar">
+                                        {MOCK_CARDS.filter(c => c.id !== '3').map((card) => {
+                                            return (
+                                                <button 
+                                                    key={card.id}
+                                                    onClick={() => {
+                                                        setSelectedPayCard(card);
+                                                        setIsPayCardBottomSheetOpen(false);
+                                                    }}
+                                                    className={`w-full p-5 rounded-3xl flex items-center justify-between border-2 transition-all ${
+                                                        selectedPayCard.id === card.id 
+                                                            ? 'border-blue-600 bg-blue-50/50 shadow-sm' 
+                                                            : 'border-gray-50 bg-gray-50/50 grayscale opacity-80'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center gap-4">
+                                                        <div className={`w-12 h-8 rounded-lg ${card.color} shadow-sm`} />
+                                                        <div className="text-left font-black">
+                                                            <p className="text-sm text-gray-900">{card.title}</p>
+                                                            <p className="text-[10px] text-gray-400 mt-0.5">{card.cardId}</p>
+                                                        </div>
+                                                    </div>
+                                                    {selectedPayCard.id === card.id && <Icon name="check-circle" className="w-5 h-5 text-blue-600" />}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    <button 
+                                        onClick={() => setIsPayCardBottomSheetOpen(false)}
+                                        className="w-full mt-6 py-4 rounded-3xl bg-gray-900 text-white font-black text-sm active:scale-95 transition-transform"
+                                    >
+                                        取消
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Mall Card Selector Bottom Sheet */}
+                        {isMallCardBottomSheetOpen && (
+                            <div className="fixed inset-0 z-[200] flex items-end justify-center px-0">
+                                <div onClick={() => setIsMallCardBottomSheetOpen(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm fade-in" />
+                                <div className="bg-white w-full max-w-md rounded-t-[40px] overflow-hidden shadow-2xl relative z-10 p-6 font-sans bottom-sheet-in">
+                                    <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-6" />
+                                    <h3 className="text-lg font-black text-center mb-6">切换商城消费卡</h3>
+                                    <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 no-scrollbar">
+                                        {MOCK_CARDS.filter(c => c.allowedChannels.includes('mall')).map((card) => {
+                                            const originalIndex = MOCK_CARDS.findIndex(c => c.id === card.id);
+                                            return (
+                                                <button 
+                                                    key={card.id}
+                                                    onClick={() => {
+                                                        setSelectedMallCardIndex(originalIndex);
+                                                        setIsMallCardBottomSheetOpen(false);
+                                                    }}
+                                                    className={`w-full p-5 rounded-3xl flex items-center justify-between border-2 transition-all ${
+                                                        selectedMallCardIndex === originalIndex 
+                                                            ? 'border-blue-600 bg-blue-50/50 shadow-sm' 
+                                                            : 'border-gray-50 bg-gray-50/50 grayscale opacity-80'
+                                                    }`}
+                                                >
+                                                    <div className="flex items-center gap-4">
+                                                        <div className={`w-12 h-8 rounded-lg ${card.color} shadow-sm`} />
+                                                        <div className="text-left font-black">
+                                                            <p className="text-sm text-gray-900">{card.title}</p>
+                                                            <p className="text-[10px] text-gray-400 mt-0.5">{card.cardId}</p>
+                                                        </div>
+                                                    </div>
+                                                    {selectedMallCardIndex === originalIndex && <Icon name="check-circle" className="w-5 h-5 text-blue-600" />}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                    <button 
+                                        onClick={() => setIsMallCardBottomSheetOpen(false)}
+                                        className="w-full mt-6 py-4 rounded-3xl bg-gray-900 text-white font-black text-sm active:scale-95 transition-transform"
+                                    >
+                                        取消
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                        {showMiniProgramModal && (
+                            <div className="fixed inset-0 z-[200] flex items-center justify-center px-8 fade-in">
+                                <div onClick={() => setShowMiniProgramModal(false)} className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
+                                <div className="bg-white/95 backdrop-blur-xl w-full max-w-[280px] rounded-[32px] overflow-hidden shadow-2xl p-6 relative z-10 flex flex-col items-center text-center gap-4 scale-in font-sans">
+                                    <div className="w-16 h-16 bg-blue-50 rounded-2xl flex items-center justify-center">
+                                        <Icon name="truck" className="w-8 h-8 text-blue-600" />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <p className="text-base font-black text-gray-900">联华鲸选到家</p>
+                                        <p className="text-xs text-gray-400 font-bold leading-relaxed px-4">即将打开联华鲸选到家小程序，是否继续？</p>
+                                    </div>
+                                    <div className="w-full flex flex-col gap-2 mt-2">
+                                        <button onClick={() => setShowMiniProgramModal(false)} className="w-full bg-blue-600 text-white py-3 rounded-2xl font-black text-sm shadow-lg shadow-blue-100 active:scale-95 transition-transform">继续前往</button>
+                                        <button onClick={() => setShowMiniProgramModal(false)} className="w-full text-gray-400 py-2 rounded-2xl font-black text-xs active:scale-95 transition-transform">暂不需要</button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="absolute bottom-0 left-0 right-0 bg-white/95 backdrop-blur-xl border-t border-gray-100 h-24 flex items-center justify-around px-2 pb-6 z-40 iphone-x-bottom">
+                        {MOCK_CARDS[activeCardIndex].allowedTabs.includes('home') && (
+                            <button onClick={() => setActiveTab('home')} className={`flex flex-col items-center gap-1 flex-1 transition-all ${activeTab === 'home' ? 'text-blue-600 scale-105' : 'text-gray-400'}`}>
+                                <Icon name="home" className="w-5 h-5" />
+                                <span className="text-[9px] font-bold">首页</span>
+                            </button>
+                        )}
+                        {MOCK_CARDS[activeCardIndex].allowedTabs.includes('jingxuan') && (
+                            <button onClick={() => setShowMiniProgramModal(true)} className={`flex flex-col items-center gap-1 flex-1 transition-all ${activeTab === 'jingxuan' ? 'text-blue-600 scale-105' : 'text-gray-400'}`}>
+                                <Icon name="truck" className="w-5 h-5" />
+                                <span className="text-[9px] font-bold">鲸选</span>
+                            </button>
+                        )}
+                        {MOCK_CARDS[activeCardIndex].allowedTabs.includes('pay') && activeTab !== 'mall' && (
+                            <div className="flex-1 flex justify-center -mt-12 relative">
+                                <button onClick={() => setActiveTab('pay')} className={`w-16 h-16 rounded-full flex items-center justify-center shadow-2xl border-4 border-white transition-all bg-blue-600 floating-btn active:scale-90`}>
+                                    <Icon name="qr-code" className="w-8 h-8 text-white" />
+                                </button>
+                                <span className={`absolute -bottom-6 text-[9px] font-bold ${activeTab === 'pay' ? 'text-blue-600' : 'text-gray-400'}`}>付款</span>
+                            </div>
+                        )}
+                        {MOCK_CARDS[activeCardIndex].allowedTabs.includes('mall') && (
+                            <button onClick={() => setActiveTab('mall')} className={`flex flex-col items-center gap-1 flex-1 transition-all ${activeTab === 'mall' ? 'text-blue-600 scale-105' : 'text-gray-400'}`}>
+                                <Icon name="shopping-cart" className="w-5 h-5" />
+                                <span className="text-[9px] font-bold">商城</span>
+                            </button>
+                        )}
+                        {MOCK_CARDS[activeCardIndex].allowedTabs.includes('mine') && (
+                            <button onClick={() => setActiveTab('mine')} className={`flex flex-col items-center gap-1 flex-1 transition-all ${activeTab === 'mine' ? 'text-blue-600 scale-105' : 'text-gray-400'}`}>
+                                <Icon name="user" className="w-5 h-5" />
+                                <span className="text-[9px] font-bold">我的</span>
+                            </button>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
