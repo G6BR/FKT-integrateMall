@@ -2048,6 +2048,7 @@ const MallPage = ({
   </div>
 );
 
+// Main Application Component
 export default function App() {
   const [MOCK_CARDS, setMOCK_CARDS] = useState<MealCard[]>(() => {
     const saved = localStorage.getItem('mock_cards_v7');
