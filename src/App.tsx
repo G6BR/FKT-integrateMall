@@ -2050,12 +2050,12 @@ const MallPage = ({
 
 export default function App() {
   const [MOCK_CARDS, setMOCK_CARDS] = useState<MealCard[]>(() => {
-    const saved = localStorage.getItem('mock_cards_v6');
+    const saved = localStorage.getItem('mock_cards_v7');
     if (saved) return JSON.parse(saved);
     return INITIAL_MOCK_CARDS;
   });
   const [defaultCardId, setDefaultCardId] = useState<string>(() => {
-    return localStorage.getItem('default_card_id_v6') || INITIAL_MOCK_CARDS[0].id;
+    return localStorage.getItem('default_card_id_v7') || INITIAL_MOCK_CARDS[0].id;
   });
 
   const [activeTab, setActiveTab] = useState('home');
@@ -2065,17 +2065,17 @@ export default function App() {
   const [showMiniProgramModal, setShowMiniProgramModal] = useState(false);
   const [currentBanner, setCurrentBanner] = useState(0);
   const [activeCardIndex, setActiveCardIndex] = useState(() => {
-    const savedCards = localStorage.getItem('mock_cards_v6');
+    const savedCards = localStorage.getItem('mock_cards_v7');
     const cards = savedCards ? JSON.parse(savedCards) : INITIAL_MOCK_CARDS;
-    const defId = localStorage.getItem('default_card_id_v6') || INITIAL_MOCK_CARDS[0].id;
+    const defId = localStorage.getItem('default_card_id_v7') || INITIAL_MOCK_CARDS[0].id;
     return Math.max(0, cards.findIndex((c: any) => c.id === defId));
   });
   const [pendingCardIndex, setPendingCardIndex] = useState<number | null>(null);
   const [showSwitchModal, setShowSwitchModal] = useState(false);
   const [selectedPayCard, setSelectedPayCard] = useState<MealCard>(() => {
-    const savedCards = localStorage.getItem('mock_cards_v6');
+    const savedCards = localStorage.getItem('mock_cards_v7');
     const cards = savedCards ? JSON.parse(savedCards) : INITIAL_MOCK_CARDS;
-    const defId = localStorage.getItem('default_card_id_v6') || INITIAL_MOCK_CARDS[0].id;
+    const defId = localStorage.getItem('default_card_id_v7') || INITIAL_MOCK_CARDS[0].id;
     const defaultCard = cards.find((c: any) => c.id === defId);
     if (defaultCard && defaultCard.allowedTabs.includes('pay')) return defaultCard;
     return cards.find((c: any) => c.allowedTabs.includes('pay')) || cards[0];
@@ -2091,11 +2091,11 @@ export default function App() {
   const [scrollTimeout, setScrollTimeout] = useState<NodeJS.Timeout | null>(null);
   
   useEffect(() => {
-    localStorage.setItem('mock_cards_v6', JSON.stringify(MOCK_CARDS));
+    localStorage.setItem('mock_cards_v7', JSON.stringify(MOCK_CARDS));
   }, [MOCK_CARDS]);
 
   useEffect(() => {
-    localStorage.setItem('default_card_id_v6', defaultCardId);
+    localStorage.setItem('default_card_id_v7', defaultCardId);
   }, [defaultCardId]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -2143,7 +2143,13 @@ export default function App() {
 
   useEffect(() => {
     if (activeTab === 'pay') {
-      setSelectedPayCard(MOCK_CARDS[activeCardIndex] || MOCK_CARDS[0]);
+      const currentCard = MOCK_CARDS[activeCardIndex];
+      if (currentCard && currentCard.allowedTabs.includes('pay')) {
+        setSelectedPayCard(currentCard);
+      } else {
+        const firstPayCard = MOCK_CARDS.find(c => c.allowedTabs.includes('pay')) || MOCK_CARDS[0];
+        setSelectedPayCard(firstPayCard);
+      }
     }
   }, [activeTab, activeCardIndex, MOCK_CARDS]);
 
