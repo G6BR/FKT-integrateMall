@@ -24,6 +24,7 @@ export interface MealCard {
   primaryUserPhone?: string;
   subCardIds?: string[];
   userPhone?: string;
+  hasFamilyCardFeature?: boolean;
 }
 
 export interface Banner {

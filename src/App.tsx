@@ -113,6 +113,7 @@ const INITIAL_MOCK_CARDS: MealCard[] = [
     color: 'bg-gradient-to-br from-orange-500 to-orange-700',
     allowedChannels: ['jingxuan', 'mall'],
     allowedTabs: ['home', 'mall', 'jingxuan', 'mine'],
+    hasFamilyCardFeature: false,
     userPhone: '189****1111'
   },
   {
@@ -626,39 +627,47 @@ const FamilyCardPage = ({
 
               {!card.isSubCard && (
                 <div className="space-y-3 pt-3 border-t border-gray-50">
-                   <div className="flex justify-between items-center bg-gray-50/50 p-3 rounded-2xl">
-                     <span className="text-xs font-black text-gray-500">已绑定{card.subCardIds?.length || 0}张副卡，3张上限</span>
-                     <button 
-                      onClick={() => setShowAddModal(true)}
-                      className="flex items-center gap-1 text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
-                     >
-                       <Plus className="w-3 h-3" /> 添加副卡
-                     </button>
-                   </div>
-                   
-                   {card.subCardIds && card.subCardIds.length > 0 ? (
-                     card.subCardIds.map(subId => {
-                       const subCard = ALL_CARDS.find(c => c.id === subId);
-                       return (
-                         <div key={subId} className="flex items-center justify-between px-2">
-                           <div className="flex items-center gap-2">
-                             <div className={`w-1.5 h-1.5 rounded-full ${subCard?.color || 'bg-gray-200'}`} />
-                             <span className="text-[11px] font-black text-gray-700">{subCard?.userPhone || '未知号码'}</span>
-                           </div>
-                           <button 
-                             onClick={() => setUnbindConfirmSubId(subId)}
-                             className="text-[10px] font-black text-red-500 bg-red-50 px-2.5 py-1 rounded-full active:scale-90 transition-all"
-                           >
-                             解绑
-                           </button>
+                  {card.hasFamilyCardFeature === false ? (
+                    <div className="py-2 text-center bg-gray-50/50 rounded-2xl mx-1">
+                      <p className="text-[10px] text-gray-400 font-bold p-2">此卡暂未开通亲情卡功能，如有需要请联系单位</p>
+                    </div>
+                  ) : (
+                    <>
+                       <div className="flex justify-between items-center bg-gray-50/50 p-3 rounded-2xl">
+                         <span className="text-xs font-black text-gray-500">已绑定{card.subCardIds?.length || 0}张副卡，3张上限</span>
+                         <button 
+                          onClick={() => setShowAddModal(true)}
+                          className="flex items-center gap-1 text-[10px] font-black text-blue-600 bg-blue-50 px-3 py-1.5 rounded-full active:scale-95 transition-transform"
+                         >
+                           <Plus className="w-3 h-3" /> 添加副卡
+                         </button>
+                       </div>
+                       
+                       {card.subCardIds && card.subCardIds.length > 0 ? (
+                         card.subCardIds.map(subId => {
+                           const subCard = ALL_CARDS.find(c => c.id === subId);
+                           return (
+                             <div key={subId} className="flex items-center justify-between px-2">
+                               <div className="flex items-center gap-2">
+                                 <div className={`w-1.5 h-1.5 rounded-full ${subCard?.color || 'bg-gray-200'}`} />
+                                 <span className="text-[11px] font-black text-gray-700">{subCard?.userPhone || '未知号码'}</span>
+                               </div>
+                               <button 
+                                 onClick={() => setUnbindConfirmSubId(subId)}
+                                 className="text-[10px] font-black text-red-500 bg-red-50 px-2.5 py-1 rounded-full active:scale-90 transition-all"
+                               >
+                                 解绑
+                               </button>
+                             </div>
+                           );
+                         })
+                       ) : (
+                         <div className="py-2 text-center">
+                            <p className="text-[10px] text-gray-300 font-bold italic">暂未绑定任何副卡</p>
                          </div>
-                       );
-                     })
-                   ) : (
-                     <div className="py-2 text-center">
-                        <p className="text-[10px] text-gray-300 font-bold italic">暂未绑定任何副卡</p>
-                     </div>
-                   )}
+                       )}
+                    </>
+                  )}
                 </div>
               )}
 
@@ -1220,6 +1229,7 @@ const MinePage = ({
       case 'family':
         return (
           <FamilyCardPage 
+            activeCardIndex={activeCardIndex}
             setMineSubTab={setMineSubTab}
             setActiveTab={setActiveTab}
             MOCK_CARDS={MOCK_CARDS}
@@ -2080,12 +2090,12 @@ const MallPage = ({
 // Main Application Component
 export default function App() {
   const [MOCK_CARDS, setMOCK_CARDS] = useState<MealCard[]>(() => {
-    const saved = localStorage.getItem('mock_cards_v8');
+    const saved = localStorage.getItem('mock_cards_v9');
     if (saved) return JSON.parse(saved);
     return INITIAL_MOCK_CARDS;
   });
   const [defaultCardId, setDefaultCardId] = useState<string>(() => {
-    return localStorage.getItem('default_card_id_v8') || INITIAL_MOCK_CARDS[0].id;
+    return localStorage.getItem('default_card_id_v9') || INITIAL_MOCK_CARDS[0].id;
   });
 
   const [activeTab, setActiveTab] = useState('home');
@@ -2095,16 +2105,16 @@ export default function App() {
   const [showMiniProgramModal, setShowMiniProgramModal] = useState(false);
   const [currentBanner, setCurrentBanner] = useState(0);
   const [activeCardIndex, setActiveCardIndex] = useState(() => {
-    const savedCards = localStorage.getItem('mock_cards_v8');
+    const savedCards = localStorage.getItem('mock_cards_v9');
     const cards = savedCards ? JSON.parse(savedCards) : INITIAL_MOCK_CARDS;
-    const defId = localStorage.getItem('default_card_id_v8') || INITIAL_MOCK_CARDS[0].id;
+    const defId = localStorage.getItem('default_card_id_v9') || INITIAL_MOCK_CARDS[0].id;
     return Math.max(0, cards.findIndex((c: any) => c.id === defId));
   });
   const scrollActiveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [selectedPayCard, setSelectedPayCard] = useState<MealCard>(() => {
-    const savedCards = localStorage.getItem('mock_cards_v8');
+    const savedCards = localStorage.getItem('mock_cards_v9');
     const cards = savedCards ? JSON.parse(savedCards) : INITIAL_MOCK_CARDS;
-    const defId = localStorage.getItem('default_card_id_v8') || INITIAL_MOCK_CARDS[0].id;
+    const defId = localStorage.getItem('default_card_id_v9') || INITIAL_MOCK_CARDS[0].id;
     const defaultCard = cards.find((c: any) => c.id === defId);
     if (defaultCard && defaultCard.allowedTabs.includes('pay')) return defaultCard;
     return cards.find((c: any) => c.allowedTabs.includes('pay')) || cards[0];
@@ -2120,11 +2130,11 @@ export default function App() {
   const [scrollTimeout, setScrollTimeout] = useState<NodeJS.Timeout | null>(null);
   
   useEffect(() => {
-    localStorage.setItem('mock_cards_v8', JSON.stringify(MOCK_CARDS));
+    localStorage.setItem('mock_cards_v9', JSON.stringify(MOCK_CARDS));
   }, [MOCK_CARDS]);
 
   useEffect(() => {
-    localStorage.setItem('default_card_id_v8', defaultCardId);
+    localStorage.setItem('default_card_id_v9', defaultCardId);
   }, [defaultCardId]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
