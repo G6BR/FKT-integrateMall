@@ -55,7 +55,7 @@ const INITIAL_MOCK_CARDS: MealCard[] = [
     unitName: '杭州硕洋科技',
     cardId: '70001813989850712',
     color: 'bg-gradient-to-br from-blue-600 to-blue-800',
-    allowedChannels: ['mall', 'jingxuan', 'canteen', 'box'],
+    allowedChannels: ['scan', 'mall', 'jingxuan', 'canteen', 'box'],
     allowedTabs: ['home', 'mall', 'pay', 'jingxuan', 'mine'],
     subCardIds: ['s1'],
     userPhone: '139****5071'
@@ -663,15 +663,18 @@ const FamilyCardPage = ({
               )}
 
               {card.isSubCard && card.primaryUserPhone && (
-                <div className="pt-3 border-t border-gray-50 space-y-2">
+                <div className="pt-3 border-t border-gray-50 flex items-center justify-between">
                    <div className="flex items-center gap-2 text-gray-500">
                      <Smartphone className="w-3.5 h-3.5" />
                      <span className="text-xs font-black">关联主卡: </span>
                      <span className="text-xs font-black text-gray-900">{card.primaryUserPhone}</span>
                    </div>
-                   <p className="text-[10px] text-gray-300 bg-gray-50/50 p-2 rounded-xl text-center font-bold">
-                     如需解绑请登录主卡操作
-                   </p>
+                   <button 
+                     onClick={() => setUnbindConfirmSubId(card.id)}
+                     className="text-[10px] font-black text-red-500 bg-red-50 px-2.5 py-1 rounded-full active:scale-90 transition-all"
+                   >
+                     解绑
+                   </button>
                 </div>
               )}
             </div>
@@ -815,6 +818,7 @@ const PaymentPasswordPage = ({
   const [isSending, setIsSending] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [isSmallAmountFree, setIsSmallAmountFree] = useState(false);
+  const [freeAmountLimit, setFreeAmountLimit] = useState('100');
 
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [modalPassword, setModalPassword] = useState('');
@@ -896,25 +900,53 @@ const PaymentPasswordPage = ({
         </div>
 
         {/* Small Amount Settings */}
-        <div className="bg-white rounded-[32px] p-6 shadow-sm border border-gray-50 flex items-center justify-between">
-          <div>
-             <div className="flex items-center gap-2 mb-1.5">
-               <Shield className="w-5 h-5 text-green-500" />
-               <p className="text-base font-black text-gray-800">小额免密支付</p>
-             </div>
-             <p className="text-[11px] text-gray-400 font-bold pl-7">当单笔支付金额在100元及以内时，</p>
-             <p className="text-[11px] text-gray-400 font-bold pl-7">支持免除验证支付密码。</p>
+        <div className="bg-white rounded-[32px] p-6 shadow-sm border border-gray-50 flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <div>
+               <div className="flex items-center gap-2 mb-1.5">
+                 <Shield className="w-5 h-5 text-green-500" />
+                 <p className="text-base font-black text-gray-800">小额免密支付</p>
+               </div>
+               <p className="text-[11px] text-gray-400 font-bold pl-7">当单笔支付金额在以下额度内时，</p>
+               <p className="text-[11px] text-gray-400 font-bold pl-7">支持免除验证支付密码。</p>
+            </div>
+            <div 
+               onClick={handleToggleSmallAmount}
+               className={`w-14 h-8 rounded-full p-1 cursor-pointer transition-colors duration-300 flex ${isSmallAmountFree ? 'bg-green-500 justify-end' : 'bg-gray-200 justify-start'} `}
+            >
+               <motion.div 
+                 layout
+                 className="w-6 h-6 bg-white rounded-full shadow-sm"
+               />
+            </div>
           </div>
-          <div 
-             onClick={handleToggleSmallAmount}
-             className={`w-14 h-8 rounded-full p-1 cursor-pointer transition-colors duration-300 ${isSmallAmountFree ? 'bg-green-500' : 'bg-gray-200'} `}
-          >
-             <motion.div 
-               layout
-               className="w-6 h-6 bg-white rounded-full shadow-sm"
-               animate={{ x: isSmallAmountFree ? 24 : 0 }}
-             />
-          </div>
+          
+          <AnimatePresence>
+            {isSmallAmountFree && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="pt-4 border-t border-gray-50 ml-7 mr-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-gray-500">免密额度</span>
+                    <select 
+                      value={freeAmountLimit}
+                      onChange={(e) => setFreeAmountLimit(e.target.value)}
+                      className="bg-gray-50 text-gray-800 text-xs font-black py-1.5 px-3 rounded-xl border-none outline-none focus:ring-2 focus:ring-green-100"
+                    >
+                      <option value="50">50元/笔</option>
+                      <option value="100">100元/笔</option>
+                      <option value="200">200元/笔</option>
+                      <option value="500">500元/笔</option>
+                    </select>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Settings Container */}
@@ -1328,14 +1360,14 @@ const HomePage = ({
   MOCK_BANNERS,
   activeCardIndex,
   MOCK_CARDS,
-  handleCardClick,
   setSelectedPayCard,
   setActiveTab,
   filteredProducts,
   isMallLoading,
   setShowMiniProgramModal,
   cardScrollRef,
-  WeChatHeaderWrapper
+  WeChatHeaderWrapper,
+  handleScroll,
 }: any) => (
   <div className="h-full overflow-y-auto pb-32 no-scrollbar" ref={scrollRef}>
     <WeChatHeaderWrapper title="饭卡通" />
@@ -1377,6 +1409,7 @@ const HomePage = ({
       <div 
         ref={cardScrollRef}
         className="card-container flex overflow-x-auto snap-x snap-mandatory no-scrollbar px-4 gap-3 pb-4"
+        onScroll={handleScroll}
       >
         {MOCK_CARDS.map((card: any, idx: number) => (
           <motion.div
@@ -1390,15 +1423,8 @@ const HomePage = ({
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="text-[14px] font-extrabold truncate uppercase tracking-tight leading-none">{card.title}</h3>
-                  {idx === activeCardIndex ? (
+                  {idx === activeCardIndex && (
                     <span className="text-[11px] bg-green-500/90 text-white px-2 py-0.5 rounded-md font-bold whitespace-nowrap shadow-sm">使用中</span>
-                  ) : (
-                    <button 
-                      onClick={() => handleCardClick(idx)}
-                      className="text-[11px] bg-white/20 hover:bg-white/30 text-white px-2 py-0.5 rounded-md font-bold transition-colors whitespace-nowrap cursor-pointer ring-1 ring-white/20"
-                    >
-                      切换
-                    </button>
                   )}
                 </div>
                 <p className="text-[9px] font-mono opacity-50 mt-1">ID: {card.cardId}</p>
@@ -1418,12 +1444,8 @@ const HomePage = ({
                   className="bg-white/20 px-4 py-2.5 rounded-2xl backdrop-blur-md active:scale-90 transition-transform cursor-pointer flex flex-col items-center gap-0.5"
                   onClick={(e) => {
                     e.stopPropagation();
-                    if (idx !== activeCardIndex) {
-                      handleCardClick(idx);
-                    } else {
-                      setSelectedPayCard(card);
-                      setActiveTab('pay');
-                    }
+                    setSelectedPayCard(card);
+                    setActiveTab('pay');
                   }}
                 >
                   <QrCode className="w-7 h-7" />
@@ -1437,6 +1459,12 @@ const HomePage = ({
                 副卡
               </div>
             )}
+            
+            {card.id === '2' && (
+              <div className="absolute top-0 right-0 bg-gradient-to-l from-red-500 to-red-600 text-white px-3 py-1 rounded-bl-[16px] shadow-[0_4px_12px_rgba(0,0,0,0.1)] font-black text-[9px] tracking-widest flex items-center justify-center border-b border-l border-white/20 z-20">
+                即将到期
+              </div>
+            )}
           </motion.div>
         ))}
         {/* Spacer to allow the last card to snap to center */}
@@ -1447,6 +1475,7 @@ const HomePage = ({
     {/* Quick Actions Grid - Dynamic based on card */}
     {(() => {
       const activeActions = [
+        { id: 'scan', icon: Scan, label: '扫一扫', color: 'text-blue-500', bg: 'bg-blue-50' },
         { id: 'jingxuan', icon: Truck, label: '鲸选到家', color: 'text-blue-500', bg: 'bg-blue-50' },
         { id: 'box', icon: Box, label: '智能柜', color: 'text-purple-500', bg: 'bg-purple-50' },
         { id: 'canteen', icon: Calendar, label: '食堂订餐', color: 'text-green-500', bg: 'bg-green-50' },
@@ -2051,12 +2080,12 @@ const MallPage = ({
 // Main Application Component
 export default function App() {
   const [MOCK_CARDS, setMOCK_CARDS] = useState<MealCard[]>(() => {
-    const saved = localStorage.getItem('mock_cards_v7');
+    const saved = localStorage.getItem('mock_cards_v8');
     if (saved) return JSON.parse(saved);
     return INITIAL_MOCK_CARDS;
   });
   const [defaultCardId, setDefaultCardId] = useState<string>(() => {
-    return localStorage.getItem('default_card_id_v7') || INITIAL_MOCK_CARDS[0].id;
+    return localStorage.getItem('default_card_id_v8') || INITIAL_MOCK_CARDS[0].id;
   });
 
   const [activeTab, setActiveTab] = useState('home');
@@ -2066,17 +2095,16 @@ export default function App() {
   const [showMiniProgramModal, setShowMiniProgramModal] = useState(false);
   const [currentBanner, setCurrentBanner] = useState(0);
   const [activeCardIndex, setActiveCardIndex] = useState(() => {
-    const savedCards = localStorage.getItem('mock_cards_v7');
+    const savedCards = localStorage.getItem('mock_cards_v8');
     const cards = savedCards ? JSON.parse(savedCards) : INITIAL_MOCK_CARDS;
-    const defId = localStorage.getItem('default_card_id_v7') || INITIAL_MOCK_CARDS[0].id;
+    const defId = localStorage.getItem('default_card_id_v8') || INITIAL_MOCK_CARDS[0].id;
     return Math.max(0, cards.findIndex((c: any) => c.id === defId));
   });
-  const [pendingCardIndex, setPendingCardIndex] = useState<number | null>(null);
-  const [showSwitchModal, setShowSwitchModal] = useState(false);
+  const scrollActiveTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [selectedPayCard, setSelectedPayCard] = useState<MealCard>(() => {
-    const savedCards = localStorage.getItem('mock_cards_v7');
+    const savedCards = localStorage.getItem('mock_cards_v8');
     const cards = savedCards ? JSON.parse(savedCards) : INITIAL_MOCK_CARDS;
-    const defId = localStorage.getItem('default_card_id_v7') || INITIAL_MOCK_CARDS[0].id;
+    const defId = localStorage.getItem('default_card_id_v8') || INITIAL_MOCK_CARDS[0].id;
     const defaultCard = cards.find((c: any) => c.id === defId);
     if (defaultCard && defaultCard.allowedTabs.includes('pay')) return defaultCard;
     return cards.find((c: any) => c.allowedTabs.includes('pay')) || cards[0];
@@ -2092,11 +2120,11 @@ export default function App() {
   const [scrollTimeout, setScrollTimeout] = useState<NodeJS.Timeout | null>(null);
   
   useEffect(() => {
-    localStorage.setItem('mock_cards_v7', JSON.stringify(MOCK_CARDS));
+    localStorage.setItem('mock_cards_v8', JSON.stringify(MOCK_CARDS));
   }, [MOCK_CARDS]);
 
   useEffect(() => {
-    localStorage.setItem('default_card_id_v7', defaultCardId);
+    localStorage.setItem('default_card_id_v8', defaultCardId);
   }, [defaultCardId]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -2174,41 +2202,20 @@ export default function App() {
     />
   );
 
-  const handleCardClick = (idx: number) => {
-    if (idx === activeCardIndex) return;
-    setPendingCardIndex(idx);
-    setShowSwitchModal(true);
-  };
-
-  const confirmSwitch = () => {
-    if (pendingCardIndex !== null) {
-      setActiveCardIndex(pendingCardIndex);
-    }
-    setShowSwitchModal(false);
-    setPendingCardIndex(null);
-  };
-
-  const cancelSwitch = () => {
-    setShowSwitchModal(false);
-    setPendingCardIndex(null);
-    if (cardScrollRef.current) {
-      const container = cardScrollRef.current;
-      const targetCard = container.children[activeCardIndex] as HTMLElement;
-      if (targetCard) {
-        isProgrammaticScroll.current = true;
-        targetCard.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
-        setTimeout(() => { isProgrammaticScroll.current = false; }, 600);
-      }
-    }
-  };
-
   const handleScroll = (e: any) => {
+    if (isProgrammaticScroll.current) return;
     const container = e.currentTarget;
-    const cardWidth = container.offsetWidth * 0.85 + 12;
+    const cardWidth = container.offsetWidth * 0.85 + 12; // Approximation based on padding and margin
     const newIndex = Math.round(container.scrollLeft / cardWidth);
-    if (newIndex !== activeCardIndex && !showSwitchModal && pendingCardIndex === null) {
-      setPendingCardIndex(newIndex);
-      setShowSwitchModal(true);
+    
+    if (newIndex >= 0 && newIndex < MOCK_CARDS.length && newIndex !== activeCardIndex) {
+      if (scrollActiveTimerRef.current) {
+        clearTimeout(scrollActiveTimerRef.current);
+      }
+      scrollActiveTimerRef.current = setTimeout(() => {
+        setActiveCardIndex(newIndex);
+        scrollActiveTimerRef.current = null;
+      }, 5000);
     }
   };
 
@@ -2222,7 +2229,6 @@ export default function App() {
             MOCK_BANNERS={MOCK_BANNERS}
             activeCardIndex={activeCardIndex}
             MOCK_CARDS={MOCK_CARDS}
-            handleCardClick={handleCardClick}
             setSelectedPayCard={setSelectedPayCard}
             setActiveTab={setActiveTab}
             filteredProducts={filteredProducts}
@@ -2285,28 +2291,6 @@ export default function App() {
           />
         )}
       </div>
-
-      <AnimatePresence>
-        {showSwitchModal && pendingCardIndex !== null && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center px-6">
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={cancelSwitch} className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-            <motion.div initial={{ opacity: 0, scale: 0.9, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.9, y: 20 }} className="bg-white w-full max-w-xs rounded-[32px] overflow-hidden shadow-2xl relative z-10">
-              <div className="p-8 text-center">
-                <div className={`w-16 h-16 ${MOCK_CARDS[pendingCardIndex].color} rounded-2xl mx-auto mb-6 flex items-center justify-center shadow-lg`}>
-                  <CreditCard className="w-8 h-8 text-white" />
-                </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-2">切换企业卡片？</h3>
-                <p className="text-sm text-gray-500 leading-relaxed">即将切换至 <span className="font-bold text-gray-800">[{MOCK_CARDS[pendingCardIndex].title}]</span>，下方的内容将随之改变。</p>
-              </div>
-              <div className="flex border-t border-gray-100">
-                <button onClick={cancelSwitch} className="flex-1 py-5 text-sm font-bold text-gray-400 hover:bg-gray-50 transition-colors">取消</button>
-                <div className="w-px bg-gray-100" />
-                <button onClick={confirmSwitch} className="flex-1 py-5 text-sm font-bold text-blue-600 hover:bg-gray-50 transition-colors">确定切换</button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
 
       <AnimatePresence>
         {showMiniProgramModal && (
