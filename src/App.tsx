@@ -1667,8 +1667,8 @@ const PayPage = ({
           {/* Pay Type Toggle */}
           <div className="w-full flex bg-gray-100 rounded-2xl p-1 mt-2">
             {[
-              { id: 'canteen', label: '食堂消费' },
-              { id: 'store', label: '便利店消费' }
+              { id: 'canteen', label: '食堂就餐' },
+              { id: 'store', label: '线下门店' }
             ].map(type => (
               <button
                 key={type.id}
@@ -1679,6 +1679,21 @@ const PayPage = ({
               </button>
             ))}
           </div>
+
+          <AnimatePresence>
+            {payType === 'store' && (
+              <motion.div
+                initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                animate={{ opacity: 1, height: 'auto', marginTop: 12 }}
+                exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                className="w-full overflow-hidden"
+              >
+                <div className="bg-red-50 text-red-600 text-xs font-bold p-3 rounded-2xl text-center border border-red-100 flex items-center justify-center gap-2">
+                  <span>饭卡通用户自动享受联华会员价</span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
