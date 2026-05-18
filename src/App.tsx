@@ -1378,6 +1378,7 @@ const HomePage = ({
   cardScrollRef,
   WeChatHeaderWrapper,
   handleScroll,
+  setSelectedMallCardIndex,
 }: any) => (
   <div className="h-full overflow-y-auto pb-32 no-scrollbar" ref={scrollRef}>
     <WeChatHeaderWrapper title="饭卡通" />
@@ -1505,8 +1506,15 @@ const HomePage = ({
                 key={action.id}
                 whileTap={{ scale: 0.9 }}
                 onClick={() => {
-                  if (action.id === 'mall') setActiveTab('mall');
+                  if (action.id === 'mall') {
+                    setSelectedMallCardIndex(activeCardIndex);
+                    setActiveTab('mall');
+                  }
                   if (action.id === 'jingxuan') setShowMiniProgramModal(true);
+                  if (action.id === 'scan' || action.id === 'canteen' || action.id === 'box') {
+                    setSelectedPayCard(MOCK_CARDS[activeCardIndex]);
+                    setActiveTab('pay');
+                  }
                 }}
                 className="flex flex-col items-center gap-2"
               >
@@ -2230,17 +2238,35 @@ export default function App() {
   const handleScroll = (e: any) => {
     if (isProgrammaticScroll.current) return;
     const container = e.currentTarget;
-    const cardWidth = container.offsetWidth * 0.85 + 12; // Approximation based on padding and margin
-    const newIndex = Math.round(container.scrollLeft / cardWidth);
+    const containerRect = container.getBoundingClientRect();
+    const containerCenter = containerRect.left + containerRect.width / 2;
     
-    if (newIndex >= 0 && newIndex < MOCK_CARDS.length && newIndex !== activeCardIndex) {
+    // Find the card closest to the container center
+    let closestIndex = activeCardIndex;
+    let minDistance = Infinity;
+    
+    // The cards have the class 'snap-center'
+    const cards = Array.from(container.children).filter((c: any) => c.classList.contains('snap-center'));
+    
+    cards.forEach((card: any, index: number) => {
+      const cardRect = card.getBoundingClientRect();
+      const cardCenter = cardRect.left + cardRect.width / 2;
+      const distance = Math.abs(containerCenter - cardCenter);
+      
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestIndex = index;
+      }
+    });
+
+    if (closestIndex >= 0 && closestIndex < MOCK_CARDS.length && closestIndex !== activeCardIndex) {
       if (scrollActiveTimerRef.current) {
         clearTimeout(scrollActiveTimerRef.current);
       }
       scrollActiveTimerRef.current = setTimeout(() => {
-        setActiveCardIndex(newIndex);
+        setActiveCardIndex(closestIndex);
         scrollActiveTimerRef.current = null;
-      }, 5000);
+      }, 100);
     }
   };
 
@@ -2262,6 +2288,7 @@ export default function App() {
             cardScrollRef={cardScrollRef}
             WeChatHeaderWrapper={WeChatHeaderWrapper}
             handleScroll={handleScroll}
+            setSelectedMallCardIndex={setSelectedMallCardIndex}
           />
         )}
         {activeTab === 'pay' && (
