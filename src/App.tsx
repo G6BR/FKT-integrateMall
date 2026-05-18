@@ -2266,7 +2266,7 @@ export default function App() {
       scrollActiveTimerRef.current = setTimeout(() => {
         setActiveCardIndex(closestIndex);
         scrollActiveTimerRef.current = null;
-      }, 100);
+      }, 5000);
     }
   };
 
